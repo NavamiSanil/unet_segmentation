@@ -1,6 +1,7 @@
 import os
 import torch
 import pytorch_lightning as pl
+import torch.nn.functional as F
 from pytorch_lightning import Trainer
 from kitti_data.kitti_datamodule import KittiDataModule
 from unet import UNet  # Replace with your actual model class
@@ -50,7 +51,14 @@ class SemSegment(pl.LightningModule):
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
-        return [opt], [sch]
+        return {
+            'optimizer': opt,
+            'lr_scheduler': {
+                'scheduler': sch,
+                'interval': 'epoch',  # Update at the end of each epoch
+                'frequency': 1,       # Update once per epoch
+            }
+        }
 
 
 def cli_main():
@@ -72,4 +80,5 @@ def cli_main():
 
 if __name__ == '__main__':
     cli_main()
+
 
