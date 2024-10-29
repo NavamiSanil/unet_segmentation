@@ -93,13 +93,13 @@ def cli_main():
     args = parser.parse_args()
 
     # Data
-    dm = KittiDataModule(data_dir=args.data_dir, batch_size=args.batch_size)  # Pass data_dir and batch_size directly
+    dm = KittiDataModule(data_dir=args.data_dir, batch_size=args.batch_size)
 
     # Model
     model = SemSegment(**args.__dict__, datamodule=dm)
 
-    # Train
-    trainer = pl.Trainer.from_argparse_args(args)
+    # Train with specified accelerator and device
+    trainer = pl.Trainer(accelerator='gpu', devices=1).from_argparse_args(args)
     trainer.fit(model)
 
 
