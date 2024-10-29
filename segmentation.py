@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 
-from pl_examples.models.unet import UNet
+from unet import UNet
 
 
 class SemSegment(pl.LightningModule):
