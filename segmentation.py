@@ -1,49 +1,22 @@
 import os
-from argparse import ArgumentParser
-
 import pytorch_lightning as pl
-import torch
-import torch.nn.functional as F
-
-from unet import UNet
+from pytorch_lightning import Trainer
 from kitti_data.kitti_datamodule import KittiDataModule
+from unet import UNet  # Replace with your actual model class
 
 
 class SemSegment(pl.LightningModule):
-    def __init__(self,
-                 datamodule: pl.LightningDataModule = None,
-                 lr: float = 0.01,
-                 num_classes: int = 19,
-                 num_layers: int = 5,
-                 features_start: int = 64,
-                 bilinear: bool = False,
-                 **kwargs):
-        """
-        Basic model for semantic segmentation. Uses UNet architecture by default.
-
-        The default parameters in this model are for the KITTI dataset. Note, if you'd like to use this model as is,
-        you will first need to download the KITTI dataset yourself. You can download the dataset here.
-        <http://www.cvlibs.net/datasets/kitti/eval_semseg.php?benchmark=semantics2015>_
-
-        Args:
-            datamodule: LightningDataModule
-            num_layers: number of layers in each side of U-net (default 5)
-            features_start: number of features in first layer (default 64)
-            bilinear: whether to use bilinear interpolation (True) or transposed convolutions (default) for upsampling.
-            lr: learning (default 0.01)
-        """
+    def __init__(self, datamodule: KittiDataModule, lr: float = 0.01, num_classes: int = 19, num_layers: int = 5,
+                 features_start: int = 64, bilinear: bool = False):
         super().__init__()
-
-        assert datamodule
         self.datamodule = datamodule
-
         self.num_classes = num_classes
         self.num_layers = num_layers
         self.features_start = features_start
         self.bilinear = bilinear
         self.lr = lr
 
-        self.net = UNet(num_classes=num_classes,
+        self.net = UNet(num_classes=self.num_classes,
                         num_layers=self.num_layers,
                         features_start=self.features_start,
                         bilinear=self.bilinear)
@@ -78,42 +51,24 @@ class SemSegment(pl.LightningModule):
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
         return [opt], [sch]
 
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument("--batch_size", type=int, default=16, help="size of the batches")
-        parser.add_argument("--lr", type=float, default=0.01, help="adam: learning rate")
-        parser.add_argument("--num_layers", type=int, default=5, help="number of layers on u-net")
-        parser.add_argument("--features_start", type=float, default=64, help="number of features in first layer")
-        parser.add_argument("--bilinear", action='store_true', default=False,
-                            help="whether to use bilinear interpolation or transposed")
-
-        return parser
-
 
 def cli_main():
     pl.seed_everything(1234)
 
-    parser = ArgumentParser()
-
-    # Trainer args
-    parser = pl.Trainer.add_argparse_args(parser)
-
-    # Model args
-    parser = SemSegment.add_model_specific_args(parser)
-    parser.add_argument("--data_dir", type=str, required=True, help="Path to the KITTI dataset")
-    args = parser.parse_args()
-
-    # Data
-    dm = KittiDataModule(data_dir=args.data_dir, batch_size=args.batch_size)
+    # Data Module
+    data_dir = '/kaggle/input/data-semantics'  # Update this path
+    kitti_data_module = KittiDataModule(data_dir=data_dir, batch_size=32, num_workers=4)
 
     # Model
-    model = SemSegment(**args.__dict__, datamodule=dm)
+    model = SemSegment(datamodule=kitti_data_module)
 
-    # Train with specified accelerator and device
-    trainer = pl.Trainer(accelerator='gpu', devices=1).from_argparse_args(args)
-    trainer.fit(model)
+    # Trainer
+    trainer = Trainer(accelerator='gpu', devices=1)  # Use GPU if available
+
+    # Train
+    trainer.fit(model, kitti_data_module)
 
 
 if __name__ == '__main__':
     cli_main()
+
