@@ -1,83 +1,91 @@
-import os
-import torch
 import pytorch_lightning as pl
-import torch.nn.functional as F
 from pytorch_lightning import Trainer
-from kitti_data.kitti_datamodule import KittiDataModule
-from unet import UNet  # Replace with your actual model class
+from torch.utils.data import DataLoader
+import torch
+import torch.nn as nn
+import torchvision.transforms as transforms
+from torchvision.datasets import Cityscapes  # Use appropriate dataset
+import os
 
-
-class SemSegment(pl.LightningModule):
-    def __init__(self, datamodule: KittiDataModule, lr: float = 0.01, num_classes: int = 19, num_layers: int = 5,
-                 features_start: int = 64, bilinear: bool = False):
-        super().__init__()
-        self.datamodule = datamodule
-        self.num_classes = num_classes
-        self.num_layers = num_layers
-        self.features_start = features_start
-        self.bilinear = bilinear
-        self.lr = lr
-
-        self.net = UNet(num_classes=self.num_classes,
-                        num_layers=self.num_layers,
-                        features_start=self.features_start,
-                        bilinear=self.bilinear)
-
-        # Initialize optimizer and scheduler here to access them in lr_scheduler_step
-        self.optimizer = None
-        self.scheduler = None
+class UNet(nn.Module):
+    # UNet model definition here (simplified for brevity)
+    def __init__(self):
+        super(UNet, self).__init__()
+        # Define layers...
 
     def forward(self, x):
-        return self.net(x)
+        # Forward pass logic...
+        return x
 
-    def training_step(self, batch, batch_nb):
-        img, mask = batch
-        img = img.float()
-        mask = mask.long()
-        out = self(img)
-        loss_val = F.cross_entropy(out, mask, ignore_index=250)
-        log_dict = {'train_loss': loss_val}
-        return {'loss': loss_val, 'log': log_dict, 'progress_bar': log_dict}
+
+class KittiDataModule(pl.LightningDataModule):
+    def __init__(self, data_dir, batch_size=32, num_workers=4):
+        super().__init__()
+        self.data_dir = data_dir
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+    def setup(self, stage=None):
+        # Load datasets here
+        # You might need to implement your dataset loading logic
+        # Example using Cityscapes dataset (replace with KITTI if necessary)
+        self.train_dataset = Cityscapes(self.data_dir, split='train', mode='fine', target_type='semantic', transform=transforms.ToTensor())
+        self.val_dataset = Cityscapes(self.data_dir, split='val', mode='fine', target_type='semantic', transform=transforms.ToTensor())
+
+        # Debugging: Print lengths
+        print(f"Training dataset length: {len(self.train_dataset)}")
+        print(f"Validation dataset length: {len(self.val_dataset)}")
+
+        if len(self.val_dataset) == 0:
+            print("Validation dataset is empty. Please check your dataset paths and loading logic.")
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+
+
+class SegmentationModel(pl.LightningModule):
+    def __init__(self):
+        super(SegmentationModel, self).__init__()
+        self.model = UNet()  # Replace with your model
+        self.criterion = nn.CrossEntropyLoss()  # Modify as per your needs
+
+    def forward(self, x):
+        return self.model(x)
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.forward(x)
+        loss = self.criterion(y_hat, y)
+        self.log('train_loss', loss)
+        return loss
 
     def validation_step(self, batch, batch_idx):
-        img, mask = batch
-        img = img.float()
-        mask = mask.long()
-        out = self(img)
-        loss_val = F.cross_entropy(out, mask, ignore_index=250)
-        return {'val_loss': loss_val}
-
-    def validation_epoch_end(self, outputs):
-        loss_val = torch.stack([x['val_loss'] for x in outputs]).mean()
-        log_dict = {'val_loss': loss_val}
-        return {'log': log_dict, 'val_loss': log_dict['val_loss'], 'progress_bar': log_dict}
+        x, y = batch
+        y_hat = self.forward(x)
+        val_loss = self.criterion(y_hat, y)
+        self.log('val_loss', val_loss)
 
     def configure_optimizers(self):
-        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=10)
-        return [self.optimizer], [self.scheduler]
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10)
+        return [optimizer], [lr_scheduler]
 
     def lr_scheduler_step(self, scheduler, epoch):
-        # Step the scheduler at the end of each epoch
-        self.scheduler.step()
-
+        # Custom logic for using the lr scheduler
+        scheduler.step()
 
 def cli_main():
-    pl.seed_everything(1234)
+    data_dir = '/path/to/kitti/dataset'  # Update this to your dataset path
+    kitti_data_module = KittiDataModule(data_dir=data_dir, batch_size=16, num_workers=4)
 
-    # Data Module
-    data_dir = '/kaggle/input/data-semantics'  # Update this path
-    kitti_data_module = KittiDataModule(data_dir=data_dir, batch_size=32, num_workers=4)
-
-    # Model
-    model = SemSegment(datamodule=kitti_data_module)
-
-    # Trainer
-    trainer = Trainer(accelerator='gpu', devices=1, max_epochs=1000)  # Set max_epochs to a specific number
-
-    # Train
+    model = SegmentationModel()
+    
+    trainer = Trainer(max_epochs=100)
     trainer.fit(model, kitti_data_module)
-
 
 if __name__ == '__main__':
     cli_main()
+
