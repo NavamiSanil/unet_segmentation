@@ -1,4 +1,5 @@
 import os
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from kitti_data.kitti_datamodule import KittiDataModule
