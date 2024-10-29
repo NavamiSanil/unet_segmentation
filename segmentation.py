@@ -23,6 +23,10 @@ class SemSegment(pl.LightningModule):
                         features_start=self.features_start,
                         bilinear=self.bilinear)
 
+        # Initialize optimizer and scheduler here to access them in lr_scheduler_step
+        self.optimizer = None
+        self.scheduler = None
+
     def forward(self, x):
         return self.net(x)
 
@@ -49,9 +53,13 @@ class SemSegment(pl.LightningModule):
         return {'log': log_dict, 'val_loss': log_dict['val_loss'], 'progress_bar': log_dict}
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
-        sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
-        return [opt], [sch]  # Return optimizer and scheduler as lists
+        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=10)
+        return [self.optimizer], [self.scheduler]
+
+    def lr_scheduler_step(self, scheduler, epoch):
+        # Step the scheduler at the end of each epoch
+        self.scheduler.step()
 
 
 def cli_main():
