@@ -1,4 +1,5 @@
-from argparse import ArgumentParser, Namespace
+import os
+from argparse import ArgumentParser
 
 import pytorch_lightning as pl
 import torch
@@ -9,7 +10,6 @@ from kitti_data.kitti_datamodule import KittiDataModule
 
 
 class SemSegment(pl.LightningModule):
-
     def __init__(self,
                  datamodule: pl.LightningDataModule = None,
                  lr: float = 0.01,
@@ -17,9 +17,21 @@ class SemSegment(pl.LightningModule):
                  num_layers: int = 5,
                  features_start: int = 64,
                  bilinear: bool = False,
-                 network: str = 'unet',
-                 **kwargs
-                 ):
+                 **kwargs):
+        """
+        Basic model for semantic segmentation. Uses UNet architecture by default.
+
+        The default parameters in this model are for the KITTI dataset. Note, if you'd like to use this model as is,
+        you will first need to download the KITTI dataset yourself. You can download the dataset here.
+        <http://www.cvlibs.net/datasets/kitti/eval_semseg.php?benchmark=semantics2015>_
+
+        Args:
+            datamodule: LightningDataModule
+            num_layers: number of layers in each side of U-net (default 5)
+            features_start: number of features in first layer (default 64)
+            bilinear: whether to use bilinear interpolation (True) or transposed convolutions (default) for upsampling.
+            lr: learning (default 0.01)
+        """
         super().__init__()
 
         assert datamodule
@@ -69,11 +81,10 @@ class SemSegment(pl.LightningModule):
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument("--data_dir", type=str, default="/kaggle/input/data-semantics", help="Path to the dataset directory")
         parser.add_argument("--batch_size", type=int, default=16, help="size of the batches")
         parser.add_argument("--lr", type=float, default=0.01, help="adam: learning rate")
         parser.add_argument("--num_layers", type=int, default=5, help="number of layers on u-net")
-        parser.add_argument("--features_start", type=int, default=64, help="number of features in first layer")
+        parser.add_argument("--features_start", type=float, default=64, help="number of features in first layer")
         parser.add_argument("--bilinear", action='store_true', default=False,
                             help="whether to use bilinear interpolation or transposed")
 
@@ -90,6 +101,7 @@ def cli_main():
 
     # Model args
     parser = SemSegment.add_model_specific_args(parser)
+    parser.add_argument("--data_dir", type=str, required=True, help="Path to the KITTI dataset")
     args = parser.parse_args()
 
     # Data
