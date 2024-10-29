@@ -28,8 +28,9 @@ class KittiDataset(Dataset):
         void_labels: useless classes to be excluded from training
         valid_labels: useful classes to include
     """
-    IMAGE_PATH = os.path.join('training', 'image_2')
-    MASK_PATH = os.path.join('training', 'semantic')
+    IMAGE_PATH = 'training/image_2'  # Adjusted for Kaggle directory structure
+    MASK_PATH = 'training/semantic'   # Adjusted for Kaggle directory structure
+
 
     def __init__(
             self,
