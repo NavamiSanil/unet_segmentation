@@ -51,14 +51,7 @@ class SemSegment(pl.LightningModule):
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
-        return {
-            'optimizer': opt,
-            'lr_scheduler': sch,
-            'monitor': 'val_loss'  # Optional: specify which metric to monitor
-        }
-
-    def lr_scheduler_step(self, scheduler, epoch):
-        scheduler.step()  # This calls the step method of your scheduler
+        return [opt], [sch]  # Return optimizer and scheduler as lists
 
 
 def cli_main():
@@ -72,7 +65,7 @@ def cli_main():
     model = SemSegment(datamodule=kitti_data_module)
 
     # Trainer
-    trainer = Trainer(accelerator='gpu', devices=1)  # Use GPU if available
+    trainer = Trainer(accelerator='gpu', devices=1, max_epochs=1000)  # Set max_epochs to a specific number
 
     # Train
     trainer.fit(model, kitti_data_module)
@@ -80,6 +73,3 @@ def cli_main():
 
 if __name__ == '__main__':
     cli_main()
-
-
-
