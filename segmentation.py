@@ -5,6 +5,8 @@ import torch
 import torch.nn.functional as F
 
 from unet import UNet
+from kitti_data.kitti_datamodule import KittiDataModule
+
 
 
 class SemSegment(pl.LightningModule):
@@ -108,7 +110,7 @@ class SemSegment(pl.LightningModule):
 
 
 def cli_main():
-    from pl_bolts.datamodules import KittiDataModule
+ 
 
     pl.seed_everything(1234)
 
