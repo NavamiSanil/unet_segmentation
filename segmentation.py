@@ -53,12 +53,12 @@ class SemSegment(pl.LightningModule):
         sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
         return {
             'optimizer': opt,
-            'lr_scheduler': {
-                'scheduler': sch,
-                'interval': 'epoch',  # Update at the end of each epoch
-                'frequency': 1,       # Update once per epoch
-            }
+            'lr_scheduler': sch,
+            'monitor': 'val_loss'  # Optional: specify which metric to monitor
         }
+
+    def lr_scheduler_step(self, scheduler, epoch):
+        scheduler.step()  # This calls the step method of your scheduler
 
 
 def cli_main():
@@ -80,5 +80,6 @@ def cli_main():
 
 if __name__ == '__main__':
     cli_main()
+
 
 
